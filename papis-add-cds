@@ -1,0 +1,73 @@
+#!/bin/env bash
+# papis-short-help: Add citations and pdfs from the CERN Document Server
+
+set -e
+set -o pipefail
+
+echoexit() {
+    # Print to stderr and exit
+    printf "%s\n" "$*" 1>&2
+    exit 1
+}
+
+usage() {
+    printf "Add citations and pdfs from the CERN Document Server
+
+Usage:
+  papis-add-cds [-h] CDS_URL
+    -h                              Show this message and exit.
+    CDS_URL                         The url of the document on the CDS.
+                                    e.g. https://cds.cern.ch/record/782076
+  "
+}
+
+whereis curl >/dev/null || echoexit "'curl' not found."
+whereis papis >/dev/null || echoexit "'papis' not found."
+
+case "$1" in
+"-h")
+    usage && exit 0
+    ;;
+"")
+    usage && exit 1
+    ;;
+*)
+    URL="$1"
+    ;;
+esac
+
+BIB_URL="${URL}/export/hx"
+FILE_URL="${URL}/files"
+
+TMP_BIB_FILE="$(mktemp --suffix=.bib)"
+TMP_PDF_FILE="$(mktemp --suffix=.pdf)"
+
+cleanup() {
+    rm "$TMP_BIB_FILE"
+    rm "$TMP_PDF_FILE"
+}
+trap cleanup EXIT
+
+get_bib() {
+    curl -L "$BIB_URL" -sS |
+        tr -d '\n' |
+        grep -oP '(?<=<div class="pagebodystripemiddle"><pre>).*?(?=</pre></div>)' |
+        tr -s "[:blank:]"
+}
+
+get_pdf_urls() {
+    curl -L "$FILE_URL" -sS |
+        grep -oP '(?<=href=").*?pdf'
+}
+
+declare -a PDF_URLS
+readarray -t PDF_URLS < <(get_pdf_urls)
+
+get_bib >"$TMP_BIB_FILE"
+papis add --from bibtex "$TMP_BIB_FILE" --batch
+
+if [ -n "${PDF_URLS[*]}" ]; then
+    echo "Adding PDF: ${PDF_URLS[0]}"
+    curl --progress-bar "${PDF_URLS[0]}" -o "$TMP_PDF_FILE"
+    papis addto "$(printf "url:'%s'" "$URL")" --files "$TMP_PDF_FILE"
+fi
