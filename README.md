@@ -12,3 +12,9 @@ cp papis-add-cds/papis-add-cds ~/.config/papis/scripts/
 ```
 
 > Make sure it is executable!
+
+# Usage
+
+```bash
+papis add-cds https://cds.cern.ch/record/782076
+```
