@@ -21,15 +21,15 @@ Usage:
   "
 }
 
-whereis curl >/dev/null || echoexit "'curl' not found."
-whereis papis >/dev/null || echoexit "'papis' not found."
+type curl >/dev/null || echoexit "'curl' not found."
+type papis >/dev/null || echoexit "'papis' not found."
 
 case "$1" in
 "-h")
     usage && exit 0
     ;;
 "")
-    usage && exit 1
+    usage >&2 && exit 1
     ;;
 *)
     URL="$1"
